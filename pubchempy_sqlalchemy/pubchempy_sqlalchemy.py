@@ -40,10 +40,13 @@ import lxml
 import base64
 import requests
 from PIL import Image
+from PIL import ImageFile
 from io import BytesIO
 import pubchempy as pubchem
 from bs4 import BeautifulSoup
 from requests.utils import requote_uri
+from sqlalchemy import create_engine
+from sqlalchemy.pool import StaticPool
 from flask_sqlalchemy import SQLAlchemy
 from flask import Flask, render_template, Response, Request ,Config
 
@@ -82,8 +85,11 @@ LOCAL_CACHE_FILE   = 'sqlite:///' + DATABASE + DATABASE_HOST + DATABASE_USER + "
 
 class Config(object):
     if TESTING == True:
-        SQLALCHEMY_DATABASE_URI = TEST_DB
+        #SQLALCHEMY_DATABASE_URI = TEST_DB
+        SQLALCHEMY_DATABASE_URI = LOCAL_CACHE_FILE
         SQLALCHEMY_TRACK_MODIFICATIONS = False
+        #engine = create_engine(TEST_DB ,\
+        #    connect_args={"check_same_thread": False},poolclass=StaticPool)
     elif TESTING == False:
         SQLALCHEMY_DATABASE_URI = LOCAL_CACHE_FILE
         SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -360,19 +366,18 @@ OUTPUT:
             blueprint("[+] Requesting: " + makered(self.request_url))
             self.rest_request = requests.get(self.request_url)
             if self.was_there_was_an_error() == False:
-                self.image_storage = Image.open(BytesIO(self.rest_request.content))
-                self.image_storage = self.encode_image_to_base64(self.rest_request)
+                raw_image_data     = self.rest_request.content
+                image_buffer       = Image.open(BytesIO(raw_image_data))
+                self.image_storage = self.encode_image_to_base64(image_buffer)
             else:
                 redprint("[-] Error with Class Variable self.encode_image_to_base64")
         else:
             redprint("[-] Input type was wrong for Image Search")
             return None
      
-    def encode_image_to_base64(self, image, image_format = "png"):
+    def encode_image_to_base64(self, image):
         greenprint("[+] Encoding Image as Base64")
-        buff = BytesIO()
-        image.save(buff, format=image_format)
-        img_str = base64.b64encode(buff.getvalue())
+        img_str = base64.b64encode(wat)
         return img_str
 
     def decode_image_from_base64(self, data):
