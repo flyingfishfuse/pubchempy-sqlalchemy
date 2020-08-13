@@ -114,14 +114,14 @@ class Compound(database.Model):
     __tablename__       = 'Compound'
     __table_args__      = {'extend_existing': True}
     id                  = database.Column(database.Integer, \
-                            index=True, \
-                            primary_key = True, \
-                            unique=True, \
-                            autoincrement=True)
+                                          index=True, \
+                                          primary_key = True, \
+                                          unique=True, \
+                                          autoincrement=True)
     cid                         = database.Column(database.String(16))
     iupac_name                  = database.Column(database.Text)
     cas                         = database.Column(database.String(64))
-    smiles                      = database.Column(database.Text)
+    isomeric_smiles             = database.Column(database.Text)
     formula                     = database.Column(database.Text)
     molweight                   = database.Column(database.String(32))
     charge                      = database.Column(database.String(32))
@@ -198,8 +198,10 @@ class DatabaseFunctions():
             greenprint("[+] performing internal lookup")
             if search_validate(id_of_record): # in pubchem_search_types:
                 kwargs  = { id_of_record : entity}
-                lookup_result  = Compound.query.filter_by(**kwargs ).first()
+                lookup_result  = Compound.query.filter_by(**kwargs).first()
                 #lookup_result  = database.Compound.query.filter_by(id_of_record = entity).first()
+            else:
+                print(**kwargs)
             return lookup_result
         except Exception as derp:
             print(derp)
@@ -263,31 +265,29 @@ class DatabaseFunctions():
         print(makered("-------------END DATABASE DUMP------------"))
     ###############################################################################
 
-    def compound_to_database(lookup_list: list):
+    def compound_to_database(lookup_dict: dict):
         """
         Puts a pubchem lookup to the database
-        ["CID", "cas" , "smiles" , "Formula", "Name", "Description", "image", WAY MORE]
         """
-        DatabaseFunctions.add_to_db(Compound(cid = lookup_list[0].get('cid')                                                   ,\
-                                     #lookup_cas                 = lookup_list[0].get('cas')                      ,\
-                                     smiles                      = lookup_list[0].get('smiles')                   ,\
-                                     formula                     = lookup_list[0].get('formula')                  ,\
-                                     molweight                   = lookup_list[0].get('molweight')                ,\
-                                     charge                      = lookup_list[0].get('charge')                   ,\
-                                     iupac_name                  = lookup_list[0].get('iupac_name')               ,\
-                                     description                 = lookup_list[0].get('description')              ,\
-                                     bond_stereo_count           = lookup_list[0].get('bond_stereo_count')        ,\
-                                     bonds                       = lookup_list[0].get('bonds')                    ,\
-                                     rotatable_bond_count        = lookup_list[0].get('rotatable_bond_count')     ,\
-                                     multipoles_3d               = lookup_list[0].get('multipoles_3d')            ,\
-                                     mmff94_energy_3d            = lookup_list[0].get('multipoles_3d')            ,\
-                                     mmff94_partial_charges_3d   = lookup_list[0].get('mmff94_partial_charges_3d'),\
-                                     atom_stereo_count           = lookup_list[0].get('atom_stereo_count')        ,\
-                                     h_bond_acceptor_count       = lookup_list[0].get('h_bond_acceptor_count')    ,\
-                                     feature_selfoverlap_3d      = lookup_list[0].get('feature_selfoverlap_3d')   ,\
-                                     cactvs_fingerprint          = lookup_list[0].get('cactvs_fingerprint')       ,\
-                                     image                       = lookup_list[0].get('image')                    ))
-
+        DatabaseFunctions.add_to_db(Compound(cid = lookup_dict.get('cid')                                        ,\
+                                     #lookup_cas                 = lookup_dict.get('cas')                        ,\
+                                     isomeric_smiles             = lookup_dict.get('isomeric_smiles')            ,\
+                                     molecular_formula           = lookup_dict.get('molecular_formula')          ,\
+                                     molecular_weight            = lookup_dict.get('molecular_molweight')        ,\
+                                     charge                      = lookup_dict.get('charge')                     ,\
+                                     bond_stereo_count           = lookup_dict.get('bond_stereo_count')          ,\
+                                     bonds                       = lookup_dict.get('bonds')                      ,\
+                                     iupac_name                  = lookup_dict.get('iupac_name')                 ,\
+                                     description                 = lookup_dict.get('description')                ,\
+                                     rotatable_bond_count        = lookup_dict.get('rotatable_bond_count')       ,\
+                                     multipoles_3d               = lookup_dict.get('multipoles_3d')              ,\
+                                     mmff94_energy_3d            = lookup_dict.get('mmff94_energy_3d')           ,\
+                                     mmff94_partial_charges_3d   = lookup_dict.get('mmff94_partial_charges_3d')  ,\
+                                     atom_stereo_count           = lookup_dict.get('atom_stereo_count')          ,\
+                                     h_bond_acceptor_count       = lookup_dict.get('h_bond_acceptor_count')      ,\
+                                     feature_selfoverlap_3d      = lookup_dict.get('feature_selfoverlap_3d')     ,\
+                                     cactvs_fingerprint          = lookup_dict.get('cactvs_fingerprint')         ,\
+                                     image                       = lookup_dict.get('image')                      ))
 ###################################################################################
 # The meat and potatoes
 ###################################################################################
@@ -347,6 +347,7 @@ OUTPUT:
     '''
     def __init__(self, record_to_request: str , input_type = "name"):
         #############################
+        self.image_storage = str
         if search_validate(input_type) :#in pubchem_search_types:
             greenprint("searching for an image : " + record_to_request)
             # fixes local code/context to work with url/remote context
@@ -359,7 +360,8 @@ OUTPUT:
             blueprint("[+] Requesting: " + makered(self.request_url))
             self.rest_request = requests.get(self.request_url)
             if self.was_there_was_an_error() == False:
-                self.image_storage = self.encode_image_to_base64(self.image_storage)
+                self.image_storage = Image.open(BytesIO(self.rest_request.content))
+                self.image_storage = self.encode_image_to_base64(self.rest_request)
             else:
                 redprint("[-] Error with Class Variable self.encode_image_to_base64")
         else:
@@ -377,9 +379,9 @@ OUTPUT:
         buff = BytesIO(base64.b64decode(data))
         return Image.open(buff)
     
-#    def save_image(self, PIL_image, name, image_format):
-#        greenprint("[+] Saving image as {}".format(name))
-#        PIL_image.save(self.filename, format=image_format)
+    def save_image(self, PIL_image, name, image_format):
+        greenprint("[+] Saving image as {}".format(name))
+        PIL_image.save(self.filename, format=image_format)
 
     def decode_and_save(self, base64_image, name, image_format):
         '''
@@ -596,13 +598,12 @@ Ater validation, the user input is used in :
                             'iupac_name'               : each.iupac_name                ,\
                             'description'              : self.lookup_description        ,\
                             'image'                    : self.image                     }]
-                    return_relationships.append(query_appendix)
                     # Right here we need to find a way to store multiple records
                     # and determine the best record to store as the main entry
                     #compound_to_database() TAKES A LIST!!! First element of first element
                     #[ [this thing here] , [not this one] ]
-                    #print(return_relationships[return_index])
-                    DatabaseFunctions.compound_to_database(return_relationships[return_index])
+                
+                    DatabaseFunctions.compound_to_database(query_appendix[return_index])
             
             # if there was only one result or the user supplied a CID for a single chemical
             elif isinstance(lookup_results, pubchem.Compound) :#\
@@ -614,30 +615,30 @@ Ater validation, the user input is used in :
                             'formula'                  : lookup_results.molecular_formula   ,\
                             'molweight'                : lookup_results.molecular_weight    ,\
                             'charge'                   : lookup_results.charge              ,\
-                            'bond_stereo_count'        : each.bond_stereo_count             ,\
-                            'bonds'                    : each.bonds                         ,\
-                            'rotatable_bond_count'     : each.rotatable_bond_count          ,\
-                            'multipoles_3d'            : each.multipoles_3d                 ,\
-                            'mmff94_energy_3d'         : each.mmff94_energy_3d              ,\
-                            'mmff94_partial_charges_3d': each.mmff94_partial_charges_3d     ,\
-                            'atom_stereo_count'        : each.atom_stereo_count             ,\
-                            'h_bond_acceptor_count'    : each.h_bond_acceptor_count         ,\
-                            'feature_selfoverlap_3d'   : each.feature_selfoverlap_3d        ,\
-                            'cactvs_fingerprint'       : each.cactvs_fingerprint            ,\
-                            'iupac_name'               : each.iupac_name                    ,\
+                            'bond_stereo_count'        : lookup_results.bond_stereo_count             ,\
+                            'bonds'                    : lookup_results.bonds                         ,\
+                            'rotatable_bond_count'     : lookup_results.rotatable_bond_count          ,\
+                            'multipoles_3d'            : lookup_results.multipoles_3d                 ,\
+                            'mmff94_energy_3d'         : lookup_results.mmff94_energy_3d              ,\
+                            'mmff94_partial_charges_3d': lookup_results.mmff94_partial_charges_3d     ,\
+                            'atom_stereo_count'        : lookup_results.atom_stereo_count             ,\
+                            'h_bond_acceptor_count'    : lookup_results.h_bond_acceptor_count         ,\
+                            'feature_selfoverlap_3d'   : lookup_results.feature_selfoverlap_3d        ,\
+                            'cactvs_fingerprint'       : lookup_results.cactvs_fingerprint            ,\
+                            'iupac_name'               : lookup_results.iupac_name                    ,\
                             'description'              : self.lookup_description            ,\
                             'iupac_name'               : lookup_results.iupac_name          ,\
                             'description'              : self.lookup_description            ,\
                             'image'                    : self.image                         }]
-                return_relationships.append(query_appendix)
-                #print(query_appendix)
-                DatabaseFunctions.compound_to_database(return_relationships[return_index])
+
+                DatabaseFunctions.compound_to_database(query_appendix[return_index])
+
             else:
                 redprint("PUBCHEM LOOKUP BY CID : ELSE AT THE END")
     #after storing the lookup to the local database, retrive the local entry
     #This returns an SQLALchemy object
-        return_query = return_relationships[return_index]
-        query_cid    = return_query[0].get('cid')
+        return_query = query_appendix[return_index]
+        query_cid    = return_query.get('cid')
         local_query  = Compound.query.filter_by(cid = query_cid).first()
         return local_query
     # OR return the remote lookup entry, either way, the information was stored
