@@ -1,9 +1,37 @@
-
+# -*- coding: utf-8 -*-
+################################################################################
+##      Pubchempy / SqlAlchemy Caching Extension - Sqlite3/base64             ##
+################################################################################
+# Copyright (c) 2020 Adam Galindo                                             ##
+#                                                                             ##
+# Permission is hereby granted, free of charge, to any person obtaining a copy##
+# of this software and associated documentation files (the "Software"),to deal##
+# in the Software without restriction, including without limitation the rights##
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell   ##
+# copies of the Software, and to permit persons to whom the Software is       ##
+# furnished to do so, subject to the following conditions:                    ##
+#                                                                             ##
+# Licenced under GPLv3                                                        ##
+# https://www.gnu.org/licenses/gpl-3.0.en.html                                ##
+#                                                                             ##
+# The above copyright notice and this permission notice shall be included in  ##
+# all copies or substantial portions of the Software.                         ##
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+####
+################################################################################
 from flask_sqlalchemy import SQLAlchemy
 from flask import Flask, render_template, Response, Request ,Config
-from pubchempy_sqlalchemy.models.compound import Compound
-from pubchempy_sqlalchemy.models.Atom import Atom
-
+# Database functions are at the bottom
+# Database Models are above them
+# then above that are the random variables necessary for program operation
+# above that is the database configuration
 ###################################################################################
 # Color Print Functions
 ###################################################################################
@@ -19,7 +47,7 @@ makered    = lambda text: Fore.RED + ' ' +  text + ' ' + Style.RESET_ALL
 makegreen  = lambda text: Fore.GREEN + ' ' +  text + ' ' + Style.RESET_ALL
 makeblue   = lambda text: Fore.BLUE + ' ' +  text + ' ' + Style.RESET_ALL
 makeyellow = lambda text: Fore.YELLOW + ' ' +  text + ' ' + Style.RESET_ALL
-
+yellow_bold_print = lambda text: print(Fore.YELLOW + Style.BRIGHT + ' {} '.format(text) + Style.RESET_ALL) if (TESTING == True) else None
 ################################################################################
 ##############                      CONFIG                     #################
 ################################################################################
@@ -106,6 +134,46 @@ symbol_list = ['H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na', \
         'Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', \
         'Mt', 'Ds', 'Rg', 'Cn', 'Nh', 'Fl', 'Mc', 'Lv', 'Ts']
 
+
+class Compound(database.Model):
+    __tablename__       = 'Compound'
+    __table_args__      = {'extend_existing': True}
+    id                  = database.Column(database.Integer, \
+                            index=True, \
+                            primary_key = True, \
+                            unique=True, \
+                            autoincrement=True)
+    cid                         = database.Column(database.String(16))
+    iupac_name                  = database.Column(database.Text)
+    cas                         = database.Column(database.String(64))
+    smiles                      = database.Column(database.Text)
+    formula                     = database.Column(database.Text)
+    molweight                   = database.Column(database.String(32))
+    charge                      = database.Column(database.String(32))
+    #TODO: serialize data and use proper type
+    bond_stereo_count           = database.Column(database.Text)
+    bonds                       = database.Column(database.Text)
+    rotatable_bond_count        = database.Column(database.Text)
+    multipoles_3d               = database.Column(database.Text)
+    mmff94_energy_3d            = database.Column(database.Text)
+    mmff94_partial_charges_3d   = database.Column(database.Text)
+    atom_stereo_count           = database.Column(database.Text)
+    h_bond_acceptor_count       = database.Column(database.Text)
+    feature_selfoverlap_3d      = database.Column(database.Text)
+    cactvs_fingerprint          = database.Column(database.Text)
+    description                 = database.Column(database.Text)
+    image                       = database.Column(database.Text)
+
+    def __repr__(self):
+        return 'IUPAC name         : {} \n \
+CAS                : {} \n \
+Formula            : {} \n \
+Molecular Weight   : {} \n \
+Charge             : {} \n \
+CID                : {} \n \
+Description:       : {} \n '.format(self.iupac_name, self.cas , self.formula, self.molweight,self.charge, self.cid, self.description)
+
+
 ###################################################################################
 # Database stuff
 ###################################################################################
@@ -146,7 +214,6 @@ class Database_functions():
         """
         try:
             greenprint("[+] performing internal lookup")
-            from pubchempy_sqlalchemy.config import search_validate
             if search_validate(id_of_record): # in pubchem_search_types:
                 kwargs  = { id_of_record : entity}
                 lookup_result  = Compound.query.filter_by(**kwargs ).first()
@@ -172,12 +239,11 @@ class Database_functions():
             database.session.add(thingie)
             database.session.commit
             redprint("=========Database Commit=======")
-            print(thingie)
+            greenprint(thingie)
             redprint("=========Database Commit=======")
         except Exception as derp:
             print(derp)
-            redprint("[-] add_to_db() FAILED")
-            print(str(Exception.__cause__))
+            print(makered("[-] add_to_db() FAILED"))
     ################################################################################
 
     def update_db(self):
@@ -188,7 +254,7 @@ class Database_functions():
             database.session.commit()
         except Exception as derp:
             print(derp.with_traceback)
-            redprint("[-] Update_db FAILED")
+            print(makered("[-] Update_db FAILED"))
 
     ###############################################################################
 
@@ -196,11 +262,11 @@ class Database_functions():
         """
     Prints database to screen
         """
-        redprint("-------------DUMPING DATABASE------------")
+        print(makered("-------------DUMPING DATABASE------------"))
         records1 = database.session.query(Compound).all()
         for each in records1:
             print (each)
-        redprint("------------END DATABASE DUMP------------")
+        print(makered("------------END DATABASE DUMP------------"))
 
     ###############################################################################
 
@@ -208,11 +274,11 @@ class Database_functions():
         """
     Prints database to screen
         """
-        redprint("-------------DUMPING COMPOUNDS------------")
+        print(makered("-------------DUMPING COMPOUNDS------------"))
         records = database.session.query(Compounds).all()
         for each in records:
             print (each)
-        redprint("-------------END DATABASE DUMP------------")
+        print(makered("-------------END DATABASE DUMP------------"))
     ###############################################################################
 
     def compound_to_database(self, lookup_list: list):

@@ -44,11 +44,11 @@ from io import BytesIO
 import pubchempy as pubchem
 from bs4 import BeautifulSoup
 from requests.utils import requote_uri
-from  pubchempy_sqlalchemy.models.Atom import Atom
-from pubchempy_sqlalchemy.models.compound import Compound
-from pubchempy_sqlalchemy.config import Database_functions
-from pubchempy_sqlalchemy.config import redprint,blueprint,greenprint,makered
-from pubchempy_sqlalchemy.config import API_BASE_URL,search_validate,yellow_bold_print
+#from models.Atom import Atom
+from config import Compound
+from config import Database_functions
+from config import redprint,blueprint,greenprint,makered
+from config import API_BASE_URL,search_validate,yellow_bold_print
 
 __author__ = 'Adam Galindo'
 __email__ = 'null@null.com'
@@ -219,10 +219,6 @@ NOTE: to grab a description or image requires a seperate REST request.
                                         'description' : self.lookup_description  ,\
                                         'image'       : self.image                }
 
-    def user_input_was_wrong(self):
-        # clear the container for cleanliness
-        self.local_output_container.clear()
-
     def do_lookup(self, user_input, type_of_input):
         '''
         after validation, the user input is used in 
@@ -273,7 +269,7 @@ NOTE: to grab a description or image requires a seperate REST request.
         # its in dire need of proper exception handling              
         except Exception as derp:
             redprint('[-] Something happened in the try/except block for the function do_lookup')
-            print(derp)
+            print(derp.with_traceback)
 
     def validate_user_input(self, user_input: str, type_of_input:str):
         """
@@ -305,12 +301,11 @@ Ater validation, the user input is used in :
                         redprint("[-] Something really wierd happened inside the validation flow")
                 except Exception as derp:
                     redprint("[-] reached the exception in validate_user_input")
-                    print(derp)
+                    print(derp.with_traceback)
             else:
                 redprint("Bad User Input")
         except Exception as derp:
             redprint("search_validate_failed")
-            print(derp)
             print(derp.with_traceback)
         
     def pubchem_lookup_by_name_or_CID(self , compound_id, type_of_data:str):
@@ -324,7 +319,7 @@ Ater validation, the user input is used in :
         # you get multiple records returned from a pubchem search VERY often
         # so you have to choose the best one to store, This needs to be 
         # presented as an option to the user,and not programmatically 
-        # return_index is the result to return, 0 is the first one
+        # return_index is the result to return
         return_index = 0
         data = ["iupac_name","cid","cas"]
         if type_of_data in data:
@@ -334,17 +329,17 @@ Ater validation, the user input is used in :
                 try:
                     greenprint("[+] Performing Pubchem Query")
                     lookup_results = pubchem.get_compounds(compound_id,'name')
-                except Exception :# pubchem.PubChemPyError:
+                except Exception as derp:# pubchem.PubChemPyError:
+                    print(derp.with_traceback)
                     redprint("[-] Error in pubchem_lookup_by_name_or_CID : NAME exception")
-                    self.user_input_was_wrong("pubchem_lookup_by_name_or_CID")
         # CID requires another way
             elif type_of_data == "cid":
                 try:
                     greenprint("[+] Performing Pubchem Query")
                     lookup_results = pubchem.Compound.from_cid(compound_id)
-                except Exception :# pubchem.PubChemPyError:
+                except Exception as derp:# pubchem.PubChemPyError:
+                    print(derp.with_traceback)
                     redprint("lookup by NAME/CAS exception - name")
-                    self.user_input_was_wrong("pubchem_lookup_by_name_or_CID")
         # once we have the lookup results, do something
             if isinstance(lookup_results, list):# and len(lookup_results) > 1 :
                 greenprint("[+] Multiple results returned ")
@@ -417,7 +412,7 @@ Ater validation, the user input is used in :
 
 
 ###############################################################################
-# TODO: Testing procedure requires bad data craft a list of shitty things a 
+# TODO: Testing procedure requires bad data, craft a list of shitty things a 
 # user can attempt. Be malicious and stupid with it
 # break shit
 greenprint("[+] Loaded Pubchem Lookup")
