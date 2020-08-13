@@ -44,73 +44,17 @@ from io import BytesIO
 import pubchempy as pubchem
 from bs4 import BeautifulSoup
 from requests.utils import requote_uri
+from  pubchempy_sqlalchemy.models.Atom import Atom
 from pubchempy_sqlalchemy.models.compound import Compound
-from pubchempy_sqlalchemy.database.functions import Database_functions
+from pubchempy_sqlalchemy.config import Database_functions
+from pubchempy_sqlalchemy.config import redprint,blueprint,greenprint,makered
+from pubchempy_sqlalchemy.config import API_BASE_URL,search_validate,yellow_bold_print
 
 __author__ = 'Adam Galindo'
 __email__ = 'null@null.com'
 __version__ = '1'
 __license__ = 'GPLv3'
 
-###################################################################################
-# Color Print Functions
-###################################################################################
-import colorama
-from colorama import init
-init()
-from colorama import Fore, Back, Style
-blueprint = lambda text: print(Fore.BLUE + ' ' +  text + ' ' + Style.RESET_ALL) if (TESTING == True) else None
-greenprint = lambda text: print(Fore.GREEN + ' ' +  text + ' ' + Style.RESET_ALL) if (TESTING == True) else None
-redprint = lambda text: print(Fore.RED + ' ' +  text + ' ' + Style.RESET_ALL) if (TESTING == True) else None
-# inline colorization for lambdas in a lambda
-makered    = lambda text: Fore.RED + ' ' +  text + ' ' + Style.RESET_ALL
-makegreen  = lambda text: Fore.GREEN + ' ' +  text + ' ' + Style.RESET_ALL
-makeblue   = lambda text: Fore.BLUE + ' ' +  text + ' ' + Style.RESET_ALL
-makeyellow = lambda text: Fore.YELLOW + ' ' +  text + ' ' + Style.RESET_ALL
-###################################################################################
-# Stuff
-###################################################################################
-list_to_string       = lambda list_to_convert: ''.join(list_to_convert)
-GRAB_DESCRIPTION     = True
-pubchem_search_types = ["iupac_name", "cid", "cas"]
-search_validate      = lambda search: search in pubchem_search_types 
-API_BASE_URL         = 'https://pubchem.ncbi.nlm.nih.gov/rest/pug'
-
-element_list = ['Hydrogen', 'Helium', 'Lithium', 'Beryllium', 'Boron', \
-        'Carbon', 'Nitrogen', 'Oxygen', 'Fluorine', 'Neon', 'Sodium', \
-        'Magnesium', 'Aluminum', 'Silicon', 'Phosphorus', 'Sulfur', \
-        'Chlorine', 'Argon', 'Potassium', 'Calcium', 'Scandium', \
-        'Titanium', 'Vanadium', 'Chromium', 'Manganese', 'Iron', 'Cobalt',\
-        'Nickel', 'Copper', 'Zinc', 'Gallium', 'Germanium', 'Arsenic', \
-        'Selenium', 'Bromine', 'Krypton', 'Rubidium', 'Strontium', \
-        'Yttrium', 'Zirconium', 'Niobium', 'Molybdenum', 'Technetium',\
-        'Ruthenium', 'Rhodium', 'Palladium', 'Silver', 'Cadmium', \
-        'Indium', 'Tin', 'Antimony', 'Tellurium', 'Iodine', 'Xenon', \
-        'Cesium', 'Barium', 'Lanthanum', 'Cerium', 'Praseodymium', \
-        'Neodymium', 'Promethium', 'Samarium', 'Europium', 'Gadolinium', \
-        'Terbium', 'Dysprosium', 'Holmium', 'Erbium', 'Thulium', \
-        'Ytterbium','Lutetium', 'Hafnium', 'Tantalum', 'Tungsten', \
-        'Rhenium', 'Osmium', 'Iridium', 'Platinum', 'Gold', 'Mercury', \
-        'Thallium', 'Lead', 'Bismuth', 'Polonium', 'Astatine', \
-        'Radon', 'Francium', 'Radium', 'Actinium', 'Thorium', \
-        'Protactinium', 'Uranium', 'Neptunium', 'Plutonium', \
-        'Americium', 'Curium', 'Berkelium', 'Californium', \
-        'Einsteinium', 'Fermium', 'Mendelevium', 'Nobelium', \
-        'Lawrencium', 'Rutherfordium', 'Dubnium', 'Seaborgium', \
-        'Bohrium', 'Hassium', 'Meitnerium', 'Darmstadtium', \
-        'Roentgenium', 'Copernicium', 'Nihonium', 'Flerovium', \
-        'Moscovium', 'Livermorium', 'Tennessine']
-
-symbol_list = ['H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na', \
-        'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca', 'Sc', 'Ti', 'V', 'Cr', \
-        'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', \
-        'Rb', 'Sr', 'Y', 'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', \
-        'In', 'Sn', 'Sb', 'Te', 'I', 'Xe', 'Cs', 'Ba', 'La', 'Ce', 'Pr', 'Nd', \
-        'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu', 'Hf', \
-        'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Po', \
-        'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th', 'Pa', 'U', 'Np', 'Pu', 'Am', 'Cm', \
-        'Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', \
-        'Mt', 'Ds', 'Rg', 'Cn', 'Nh', 'Fl', 'Mc', 'Lv', 'Ts']
 ###################################################################################
 # The meat and potatoes
 ###################################################################################
